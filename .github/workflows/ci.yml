@@ -1,0 +1,152 @@
+name: CI - Build Affected Packages
+
+on:
+  pull_request:
+    types: [labeled, opened, synchronize, reopened]
+  push:
+    branches: [main]
+
+jobs:
+  build-affected:
+    # Only run when 'release' label is present or on main branch push
+    if: ${{ contains(github.event.pull_request.labels.*.name, 'release') || github.ref == 'refs/heads/main' }}
+    
+    runs-on: ubuntu-latest
+    
+    strategy:
+      matrix:
+        node-version: [22]
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          # Fetch full git history for affected calculations
+          fetch-depth: 0
+
+      - name: Setup Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'npm'
+
+      - name: Cache Nx
+        uses: actions/cache@v4
+        with:
+          path: |
+            .nx/cache
+            .nx/workspace-data
+          key: ${{ runner.os }}-nx-${{ hashFiles('**/package-lock.json', 'nx.json', 'workspace.json') }}
+          restore-keys: |
+            ${{ runner.os }}-nx-
+
+      - name: Cache TypeScript builds
+        uses: actions/cache@v4
+        with:
+          path: |
+            dist
+            **/tsconfig.tsbuildinfo
+          key: ${{ runner.os }}-tsc-${{ hashFiles('**/tsconfig*.json', '**/package.json') }}-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-tsc-${{ hashFiles('**/tsconfig*.json', '**/package.json') }}-
+            ${{ runner.os }}-tsc-
+
+      - name: Cache node_modules
+        uses: actions/cache@v4
+        with:
+          path: |
+            node_modules
+            packages/*/node_modules
+          key: ${{ runner.os }}-node-modules-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node-modules-
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Set up Nx base and head for affected calculation
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            echo "NX_BASE=origin/${{ github.base_ref }}" >> $GITHUB_ENV
+            echo "NX_HEAD=HEAD" >> $GITHUB_ENV
+          else
+            echo "NX_BASE=HEAD~1" >> $GITHUB_ENV
+            echo "NX_HEAD=HEAD" >> $GITHUB_ENV
+          fi
+
+      - name: Show affected projects
+        run: |
+          echo "Affected projects:"
+          npx nx show projects --affected --base=$NX_BASE --head=$NX_HEAD
+
+      - name: Lint affected projects
+        run: npx nx affected:lint --base=$NX_BASE --head=$NX_HEAD --parallel=3
+
+      - name: Type check affected projects
+        run: npx nx affected:typecheck --base=$NX_BASE --head=$NX_HEAD --parallel=3
+
+      - name: Test affected projects
+        run: npx nx affected:test --base=$NX_BASE --head=$NX_HEAD --parallel=3 --ci --code-coverage
+
+      - name: Build affected projects
+        run: npx nx affected:build --base=$NX_BASE --head=$NX_HEAD --parallel=3
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-artifacts-${{ github.sha }}
+          path: |
+            dist/
+            !dist/**/*.tsbuildinfo
+          retention-days: 30
+
+      - name: Upload coverage reports
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: coverage-reports-${{ github.sha }}
+          path: |
+            coverage/
+          retention-days: 7
+
+  # Job to validate dependency graph
+  validate-dependencies:
+    if: ${{ contains(github.event.pull_request.labels.*.name, 'release') || github.ref == 'refs/heads/main' }}
+    
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'npm'
+
+      - name: Cache Nx
+        uses: actions/cache@v4
+        with:
+          path: |
+            .nx/cache
+            .nx/workspace-data
+          key: ${{ runner.os }}-nx-${{ hashFiles('**/package-lock.json', 'nx.json', 'workspace.json') }}
+          restore-keys: |
+            ${{ runner.os }}-nx-
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Validate workspace
+        run: npx nx workspace-lint
+
+      - name: Check dependency graph
+        run: npx nx graph --file=dependency-graph.html
+
+      - name: Upload dependency graph
+        uses: actions/upload-artifact@v4
+        with:
+          name: dependency-graph-${{ github.sha }}
+          path: dependency-graph.html
+          retention-days: 7

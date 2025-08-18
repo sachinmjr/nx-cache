@@ -23,6 +23,30 @@
           "buildDepsName": "build-deps",
           "watchDepsName": "watch-deps"
         }
+      },
+      "exclude": [
+        "packages/packageA/*",
+        "packages/packageB/*",
+        "packages/packageC/*"
+      ]
+    },
+    {
+      "plugin": "@nx/js/typescript",
+      "include": [
+        "packages/packageA/*",
+        "packages/packageB/*",
+        "packages/packageC/*"
+      ],
+      "options": {
+        "typecheck": {
+          "targetName": "typecheck"
+        },
+        "build": {
+          "targetName": "build",
+          "configName": "tsconfig.lib.json",
+          "buildDepsName": "build-deps",
+          "watchDepsName": "watch-deps"
+        }
       }
     }
   ]
