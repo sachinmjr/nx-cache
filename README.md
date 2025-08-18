@@ -85,22 +85,48 @@ The GitHub Actions workflow triggers on:
 
 ## Commands
 
-### Development
+### Quick Start with npm Scripts
 ```bash
 # Install dependencies
 npm ci
 
 # Build all packages
-npx nx run-many --target=build --projects=packageA,packageB,packageC
+npm run build
 
 # Build only affected packages
-npx nx affected:build
+npm run build:affected
 
 # Type check all packages
-npx nx run-many --target=typecheck --projects=packageA,packageB,packageC
+npm run typecheck
+
+# Start development with watch mode
+npm run watch
 
 # Show dependency graph
-npx nx graph
+npm run graph
+```
+
+### Individual Package Commands
+```bash
+# Build specific packages
+npm run build:packageA
+npm run build:packageB
+npm run build:packageC
+
+# Test and lint
+npm run test
+npm run lint
+npm run typecheck
+```
+
+### Advanced Development
+```bash
+# Clean and rebuild everything
+npm run clean
+npm run build
+
+# Development workflow
+npm run dev  # Watch mode for all projects
 ```
 
 ### Testing CI Locally
