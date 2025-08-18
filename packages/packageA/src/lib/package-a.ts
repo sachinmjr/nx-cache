@@ -1,3 +1,3 @@
 export function greetFromPackageA(name: string): string {
-  return `Hello ${name} from Package A!`;
+  return `Hello ${name} from Package A! 🎉`;
 }
