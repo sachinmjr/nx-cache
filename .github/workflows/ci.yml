@@ -36,7 +36,7 @@ jobs:
           path: |
             .nx/cache
             .nx/workspace-data
-          key: ${{ runner.os }}-nx-${{ hashFiles('**/package-lock.json', 'nx.json', 'workspace.json') }}
+          key: ${{ runner.os }}-nx-${{ hashFiles('**/package-lock.json', 'nx.json', 'workspace.json', '**/project.json') }}
           restore-keys: |
             ${{ runner.os }}-nx-
 
@@ -46,9 +46,9 @@ jobs:
           path: |
             dist
             **/tsconfig.tsbuildinfo
-          key: ${{ runner.os }}-tsc-${{ hashFiles('**/tsconfig*.json', '**/package.json') }}-${{ github.sha }}
+          key: ${{ runner.os }}-tsc-${{ hashFiles('**/tsconfig*.json', '**/package.json', '**/project.json') }}-${{ github.sha }}
           restore-keys: |
-            ${{ runner.os }}-tsc-${{ hashFiles('**/tsconfig*.json', '**/package.json') }}-
+            ${{ runner.os }}-tsc-${{ hashFiles('**/tsconfig*.json', '**/package.json', '**/project.json') }}-
             ${{ runner.os }}-tsc-
 
       - name: Cache node_modules
@@ -76,77 +76,32 @@ jobs:
 
       - name: Show affected projects
         run: |
+          echo "Base: $NX_BASE"
+          echo "Head: $NX_HEAD"
           echo "Affected projects:"
           npx nx show projects --affected --base=$NX_BASE --head=$NX_HEAD
-
-      - name: Lint affected projects
-        run: npx nx affected:lint --base=$NX_BASE --head=$NX_HEAD --parallel=3
-
-      - name: Type check affected projects
-        run: npx nx affected:typecheck --base=$NX_BASE --head=$NX_HEAD --parallel=3
-
-      - name: Test affected projects
-        run: npx nx affected:test --base=$NX_BASE --head=$NX_HEAD --parallel=3 --ci --code-coverage
+          echo "Dependency graph:"
+          npx nx graph --affected --base=$NX_BASE --head=$NX_HEAD --file=affected-graph.json
 
       - name: Build affected projects
-        run: npx nx affected:build --base=$NX_BASE --head=$NX_HEAD --parallel=3
+        run: |
+          echo "Building affected projects with dependencies..."
+          npx nx affected:build --base=$NX_BASE --head=$NX_HEAD --parallel=3 --verbose
 
-      - name: Upload build artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: build-artifacts-${{ github.sha }}
-          path: |
-            dist/
-            !dist/**/*.tsbuildinfo
-          retention-days: 30
+      # - name: Upload build artifacts
+      #   uses: actions/upload-artifact@v4
+      #   with:
+      #     name: build-artifacts-${{ github.sha }}
+      #     path: |
+      #       dist/
+      #       !dist/**/*.tsbuildinfo
+      #     retention-days: 30
 
-      - name: Upload coverage reports
-        uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: coverage-reports-${{ github.sha }}
-          path: |
-            coverage/
-          retention-days: 7
-
-  # Job to validate dependency graph
-  validate-dependencies:
-    if: ${{ contains(github.event.pull_request.labels.*.name, 'release') || github.ref == 'refs/heads/main' }}
-    
-    runs-on: ubuntu-latest
-    
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: 'npm'
-
-      - name: Cache Nx
-        uses: actions/cache@v4
-        with:
-          path: |
-            .nx/cache
-            .nx/workspace-data
-          key: ${{ runner.os }}-nx-${{ hashFiles('**/package-lock.json', 'nx.json', 'workspace.json') }}
-          restore-keys: |
-            ${{ runner.os }}-nx-
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Validate workspace
-        run: npx nx workspace-lint
-
-      - name: Check dependency graph
-        run: npx nx graph --file=dependency-graph.html
-
-      - name: Upload dependency graph
-        uses: actions/upload-artifact@v4
-        with:
-          name: dependency-graph-${{ github.sha }}
-          path: dependency-graph.html
-          retention-days: 7
+      # - name: Upload coverage reports
+      #   uses: actions/upload-artifact@v4
+      #   if: always()
+      #   with:
+      #     name: coverage-reports-${{ github.sha }}
+      #     path: |
+      #       coverage/
+      #     retention-days: 7

@@ -13,8 +13,7 @@
         "packageJson": "packages/packageB/package.json",
         "main": "packages/packageB/src/index.ts",
         "assets": ["packages/packageB/*.md"]
-      },
-      "dependsOn": ["@./packageA:build"]
+      }
     },
     "lint": {
       "executor": "@nx/linter:eslint",
