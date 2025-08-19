@@ -19,6 +19,9 @@
       "{workspaceRoot}/tsconfig.base.json"
     ]
   },
+  "affected": {
+    "defaultBase": "base/test"
+  },
   "targetDefaults": {
     "build": {
       "dependsOn": ["^build"],
